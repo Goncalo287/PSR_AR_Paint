@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import json
 from colorama import Fore, Style, init
+from functools import partial
 
 init(autoreset=True)        # Initialize colorama
 
@@ -19,17 +20,36 @@ def getLimits(window_name):
     max_g = cv2.getTrackbarPos('max G', window_name)
     max_r = cv2.getTrackbarPos('max R', window_name)
 
-    min = (min_b, min_g, min_r)
-    max = (max_b, max_g, max_r)
-
-    min = np.array(min, np.uint8)
-    max = np.array(max, np.uint8)
+    min = np.array([min_b, min_g, min_r], np.uint8)
+    max = np.array([max_b, max_g, max_r], np.uint8)
 
     return min, max
 
 
 def onTrackbar(val):    # replaced by getLimits() but
     pass                # required to create trackbars
+
+
+def mouseClick(event, x, y, flags, param, window_name):
+
+    # uses global image --> replace this with partial
+
+    if event == cv2.EVENT_LBUTTONDOWN:
+        b, g, r = image[y, x]
+    
+        range = 50
+
+        min_b = b - range if b > range else 0
+        max_b = b + range if b < 255-range else 255
+        min_g = g - range if g > range else 0
+        max_g = g + range if g < 255-range else 255
+        min_r = r - range if r > range else 0
+        max_r = r + range if r < 255-range else 255
+
+        limits = {'min B': min_b, 'max B': max_b, 'min G': min_g, 'max G': max_g, 'min R': min_r, 'max R': max_r}
+
+        for limit in limits:
+            cv2.setTrackbarPos(limit, window_name, limits[limit])
 
 
 def main():
@@ -48,22 +68,25 @@ def main():
 
 
     # Select camera
+    global image
     capture = cv2.VideoCapture(0)
     _, image = capture.read()
 
+    cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented))
+
 
     # Start message: title + keys
-    print(Fore.CYAN + "_"*30 + "\n\n       COLOR SEGMENTER\n" + "_"*30 + Fore.RESET +
+    print(Fore.CYAN + '_'*30 + '\n\n       COLOR SEGMENTER\n' + '_'*30 + Fore.RESET +
             '\n\n Save and exit: ' + Fore.CYAN + 'w / ENTER' + Fore.RESET +
-            '\n Exit without saving: ' + Fore.CYAN + 'q / ESC\n' + Fore.RESET)
+            '\n Exit without saving: ' + Fore.CYAN + 'q / ESC' + Fore.RESET +
+            '\n Pick color in camera: ' + Fore.CYAN + 'Mouse Left Click\n')
 
 
     while True:
 
         # Update image from camera
         _, image = capture.read()
-        image = cv2.flip(image, 1)
-        cv2.imshow('Original', image)
+        cv2.imshow(name_original, image)
 
 
         # Update segmented image
@@ -85,7 +108,7 @@ def main():
 
             file_name = 'limits.json'
             with open(file_name, 'w') as file_handle:
-                print(Fore.CYAN + '\n Saved results to ' + Style.BRIGHT + file_name + "\n")
+                print(Fore.CYAN + '\n Saved results to ' + Style.BRIGHT + file_name + '\n')
                 json.dump(dict, file_handle)
             break
 
