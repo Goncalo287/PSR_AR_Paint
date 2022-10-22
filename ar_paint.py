@@ -21,10 +21,14 @@ def main():
     parser.add_argument('-j', '--json', type=str, default='limits.json',
         required=False,
         help='Full path to json file.')
+    parser.add_argument('-usp', '--use_shake_prevention', action='store_true', default=False,
+    required=False,
+    help='Activate shake prevention.')
 
     args = vars(parser.parse_args())
 
-    json_file = args['json']
+    json_file, use_shake_prevention = args['json'], args['use_shake_prevention']
+    print(json_file, use_shake_prevention)
 
     limits = readJsonFile(json_file)
     print(limits)
@@ -52,6 +56,8 @@ def main():
         _, image = capture.read()
         cv2.imshow(name_original, image)
 
+        limits = readJsonFile(json_file)
+
         ## Update Canvas
         #TODO: Update canvas image with the "drawings"
 
@@ -77,7 +83,15 @@ def main():
             pencil_size += 1
         elif key == ord('-'): # - - decrease pencil size
             pencil_size -= 1 if pencil_size > 0 else 1
-
+        elif key == ord('s'): # s - draw a square
+            #TODO: Advanced Funcionality
+            pass
+        elif key == ord('e'): # e - draw an ellipse
+            #TODO: Advanced Funcionality
+            pass
+        elif key == ord('o'): # o - draw a circle
+            #TODO: Advanced Funcionality
+            pass
     cv2.destroyAllWindows()
 
 
