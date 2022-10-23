@@ -88,19 +88,18 @@ def main():
         _, thresh = cv2.threshold(image_thresholded,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         connectivity = 4  # You need to choose 4 or 8 for connectivity type
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
-        print("num_labels: ", num_labels)
-        print("labels: ", labels)
-        print("stats: ", stats)
-        print("centroids: ", centroids)
+        max_idx = 1
+        for i in range(1, len(stats)):
+            max_idx = i if stats[i][4] > stats[max_idx][4] \
+                else max_idx
         x = -1
         y = -1
-        '''
-        #TODO: check which index centroid is the largest one
-        if centroids[0][0] + 0.5 != image.shape[1] / 2 or centroids[0][1] + 0.5 != image.shape[0] / 2:
-            x = centroids[0][0]
-            y = centroids[0][1]
+        if len(centroids) > 1 \
+             and (centroids[max_idx][0] + 0.5 != image.shape[1] / 2 \
+             or centroids[max_idx][1] + 0.5 != image.shape[0] / 2):
+            x = centroids[max_idx][0]
+            y = centroids[max_idx][1]
         print(f'x: {x}, y: {y}')
-        '''
         if x != -1 and y != -1:
             cv2.circle(image, (int(x), int(y)), pencil_size, pencil_color, -1)
             cv2.imshow(name_original, image)
