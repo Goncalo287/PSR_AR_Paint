@@ -86,7 +86,7 @@ def main():
 
         ## Get largest segmented component
         _, thresh = cv2.threshold(image_thresholded,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        connectivity = 4  # You need to choose 4 or 8 for connectivity type
+        connectivity = 4
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
         max_idx = 1
         for i in range(1, len(stats)):
@@ -101,7 +101,9 @@ def main():
             y = centroids[max_idx][1]
         print(f'x: {x}, y: {y}')
         if x != -1 and y != -1:
-            cv2.circle(image, (int(x), int(y)), pencil_size, pencil_color, -1)
+            # Drawing cross on the webcam feed
+            cv2.line(image, (int(x-10), int(y)), (int(x+10), int(y)), (0, 0, 255), 1)
+            cv2.line(image, (int(x), int(y-10)), (int(x), int(y+10)), (0, 0, 255), 1)            
             cv2.imshow(name_original, image)
 
         ## Update Canvas
