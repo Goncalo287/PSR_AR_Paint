@@ -15,6 +15,20 @@ def readJsonFile(filename):
         limits = json.load(f)
     return limits['limits']
 
+def getLimits(limits):
+    min_b = limits['B']['min']
+    min_g = limits['G']['min']
+    min_r = limits['R']['min']
+
+    max_b = limits['B']['max']
+    max_g = limits['G']['max']
+    max_r = limits['R']['max']
+
+    min = np.array([min_b, min_g, min_r], np.uint8)
+    max = np.array([max_b, max_g, max_r], np.uint8)
+
+    return min, max
+
 def main():
     ### define and read arguments
     parser = argparse.ArgumentParser(description='AR Paint usage')
@@ -38,9 +52,15 @@ def main():
     pencil_size = 1
 
     ## Capture Video
-    name_original = "Original"
     capture = cv2.VideoCapture(0)
     _, image = capture.read()
+
+    # Create windows
+    name_segmented = 'Segmented'
+    name_original = 'Original'
+    cv2.namedWindow(name_segmented, cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow(name_original, cv2.WINDOW_AUTOSIZE)
+
     
     ## Create Blank Canvas
     canvas_window = "Canvas"
@@ -52,11 +72,38 @@ def main():
     cv2.imshow(canvas_window, canvas)
 
     while True:
-        # Update image from camera
+        ## Update image from camera
         _, image = capture.read()
         cv2.imshow(name_original, image)
 
+        ## Read Json file
         limits = readJsonFile(json_file)
+
+        ## Update Segmented Image
+        min, max = getLimits(limits)
+        image_thresholded = cv2.inRange(image, min, max)
+        cv2.imshow(name_segmented, image_thresholded)
+
+        ## Get largest segmented component
+        _, thresh = cv2.threshold(image_thresholded,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        connectivity = 4  # You need to choose 4 or 8 for connectivity type
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
+        print("num_labels: ", num_labels)
+        print("labels: ", labels)
+        print("stats: ", stats)
+        print("centroids: ", centroids)
+        x = -1
+        y = -1
+        '''
+        #TODO: check which index centroid is the largest one
+        if centroids[0][0] + 0.5 != image.shape[1] / 2 or centroids[0][1] + 0.5 != image.shape[0] / 2:
+            x = centroids[0][0]
+            y = centroids[0][1]
+        print(f'x: {x}, y: {y}')
+        '''
+        if x != -1 and y != -1:
+            cv2.circle(image, (int(x), int(y)), pencil_size, pencil_color, -1)
+            cv2.imshow(name_original, image)
 
         ## Update Canvas
         #TODO: Update canvas image with the "drawings"
