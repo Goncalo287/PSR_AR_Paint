@@ -71,6 +71,9 @@ def main():
     canvas.fill(255)
     cv2.imshow(canvas_window, canvas)
 
+    last_x = -1
+    last_y = -1
+
     while True:
         ## Update image from camera
         _, image = capture.read()
@@ -97,8 +100,8 @@ def main():
         if len(centroids) > 1 \
              and (centroids[max_idx][0] + 0.5 != image.shape[1] / 2 \
              or centroids[max_idx][1] + 0.5 != image.shape[0] / 2):
-            x = centroids[max_idx][0]
-            y = centroids[max_idx][1]
+            x = int(centroids[max_idx][0])
+            y = int(centroids[max_idx][1])
         print(f'x: {x}, y: {y}')
         if x != -1 and y != -1:
             # Drawing cross on the webcam feed
@@ -106,8 +109,15 @@ def main():
             cv2.line(image, (int(x), int(y-10)), (int(x), int(y+10)), (0, 0, 255), 1)            
             cv2.imshow(name_original, image)
 
+
+        ## TODO: Another window with only the largest component
+
         ## Update Canvas
-        #TODO: Update canvas image with the "drawings"
+        cv2.line(canvas, (int(x),int(y)), (last_x, last_y), pencil_color, pencil_size) if last_x != -1 and x != -1 \
+            else cv2.line(canvas, (x,y), (x,y), pencil_color, pencil_size)
+        last_x = x
+        last_y = y
+        cv2.imshow(canvas_window, canvas)
 
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
