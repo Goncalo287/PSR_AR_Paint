@@ -73,6 +73,7 @@ def main():
 
     last_x = -1
     last_y = -1
+    camera_mode = False
 
     while True:
         ## Update image from camera
@@ -117,7 +118,18 @@ def main():
             else cv2.line(canvas, (x,y), (x,y), pencil_color, pencil_size)
         last_x = x
         last_y = y
-        cv2.imshow(canvas_window, canvas)
+
+        # Update image in canvas (check camera mode)
+        if camera_mode:
+
+            # Overlay canvas drawing on camera (exclude background color with threshold)
+            canvas_cam = image.copy()
+            canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+            _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
+            canvas_cam[canvas_thresh==0] = canvas[canvas_thresh==0]
+            cv2.imshow(canvas_window, canvas_cam)
+        else:
+            cv2.imshow(canvas_window, canvas)
 
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
@@ -150,6 +162,10 @@ def main():
         elif key == ord('o'): # o - draw a circle
             #TODO: Advanced Funcionality
             pass
+        
+        elif key == ord('m'): # m - toggle camera Mode
+            camera_mode = False if camera_mode else True
+
     cv2.destroyAllWindows()
 
 
