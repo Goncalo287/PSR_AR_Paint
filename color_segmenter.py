@@ -11,6 +11,12 @@ from functools import partial
 init(autoreset=True)        # Initialize colorama
 
 
+def readJsonFile(filename):
+    with open(filename, 'r') as f:
+        limits = json.load(f)
+    return limits['limits']
+
+
 def getLimits(window_name):
     min_b = cv2.getTrackbarPos('min B', window_name)
     min_g = cv2.getTrackbarPos('min G', window_name)
@@ -32,7 +38,7 @@ def onTrackbar(val):    # replaced by getLimits() but
 
 def mouseClick(event, x, y, flags, param, window_name):
 
-    # uses global image --> replace this with partial
+    # uses global image
 
     if event == cv2.EVENT_LBUTTONDOWN:
         b, g, r = image[y, x]
@@ -54,27 +60,6 @@ def mouseClick(event, x, y, flags, param, window_name):
 
 def main():
 
-    # Create windows
-    name_segmented = 'Segmented'
-    name_original = 'Original'
-    cv2.namedWindow(name_segmented, cv2.WINDOW_AUTOSIZE)
-    cv2.namedWindow(name_original, cv2.WINDOW_AUTOSIZE)
-
-
-    # Create trackbars {'name': count}
-    trackbars = {'min B': 100, 'max B': 200, 'min G': 100, 'max G': 200, 'min R': 100, 'max R': 200}
-    for tb in trackbars:
-        cv2.createTrackbar(tb, name_segmented, trackbars[tb], 255, onTrackbar)
-
-
-    # Select camera
-    global image
-    capture = cv2.VideoCapture(0)
-    _, image = capture.read()
-
-    cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented))
-
-
     # Start message: title + keys
     print(Fore.CYAN + '_'*30 + '\n\n       COLOR SEGMENTER\n' + '_'*30 + Fore.RESET +
             '\n\n Save and exit: ' + Fore.CYAN + 'w / ENTER' + Fore.RESET +
@@ -82,10 +67,50 @@ def main():
             '\n Pick color in camera: ' + Fore.CYAN + 'Mouse Left Click\n')
 
 
+    # Create windows
+    name_segmented = 'Segmented'
+    name_original = 'Original'
+    cv2.namedWindow(name_segmented, cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow(name_original, cv2.WINDOW_AUTOSIZE)
+
+
+    # Get limits from file
+    file_name = 'limits.json'
+
+    try:
+        limits = readJsonFile(file_name)
+        print(Fore.CYAN + ' Loading limits from ' + Style.BRIGHT + file_name)
+    except FileNotFoundError:
+        limits = {'B': {'max': 200, 'min': 100}, 'G': {'max': 200, 'min': 100}, 'R': {'max': 200, 'min': 100}}
+
+
+    # Create trackbars {'name': count}
+    trackbars = {'min B': limits['B']['min'],
+                    'max B': limits['B']['max'],
+                    'min G': limits['G']['min'],
+                    'max G': limits['G']['max'],
+                    'min R': limits['R']['min'],
+                    'max R': limits['R']['max']}
+
+    for tb in trackbars:
+        cv2.createTrackbar(tb, name_segmented, trackbars[tb], 255, onTrackbar)
+
+
+    # Select camera - uses global variable to keep image in MouseCallback updated
+    global image
+    capture = cv2.VideoCapture(0)
+    _, image = capture.read()
+
+
+    # Create mouse callback
+    cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented))
+
+
     while True:
 
         # Update image from camera
         _, image = capture.read()
+        image = cv2.flip(image, 1)
         cv2.imshow(name_original, image)
 
 
@@ -106,10 +131,9 @@ def main():
                                 'G': {'max': max[1], 'min': min[1]},
                                 'R': {'max': max[2], 'min': min[2]}}}
 
-            file_name = 'limits.json'
             with open(file_name, 'w') as file_handle:
                 print(Fore.CYAN + '\n Saved results to ' + Style.BRIGHT + file_name + '\n')
-                json.dump(dict, file_handle)
+                json.dump(dict, file_handle, indent=4)
             break
 
         elif key == ord('q') or key == 27:  # q or ESC
