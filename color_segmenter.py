@@ -36,14 +36,14 @@ def onTrackbar(val):    # replaced by getLimits() but
     pass                # required to create trackbars
 
 
-def mouseClick(event, x, y, flags, param, window_name):
-
-    # uses global image
+def mouseClick(event, x, y, flags, param, window_name, img_dict):
 
     if event == cv2.EVENT_LBUTTONDOWN:
+        
+        image = img_dict["image"]
         b, g, r = image[y, x]
     
-        range = 50
+        range = 30
 
         min_b = b - range if b > range else 0
         max_b = b + range if b < 255-range else 255
@@ -97,13 +97,13 @@ def main():
 
 
     # Select camera - uses global variable to keep image in MouseCallback updated
-    global image
     capture = cv2.VideoCapture(0)
     _, image = capture.read()
-
+    image = cv2.flip(image, 1)
+    img_dict = {"image": image}
 
     # Create mouse callback
-    cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented))
+    cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented, img_dict=img_dict))
 
 
     while True:
@@ -111,6 +111,7 @@ def main():
         # Update image from camera
         _, image = capture.read()
         image = cv2.flip(image, 1)
+        img_dict["image"] = image
         cv2.imshow(name_original, image)
 
 
