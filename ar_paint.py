@@ -48,6 +48,17 @@ def getLimits(limits):
     return min, max
 
 
+def showResized(name, image, resize):
+
+    (h, w) = image.shape[:2]
+
+    h = int(h * resize)
+    w = int(w * resize)
+
+    image = cv2.resize(image, (w, h))
+    cv2.imshow(name, image)
+
+
 def getCentroid(image_thresh):
     _, thresh = cv2.threshold(image_thresh,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     connectivity = 4
@@ -123,12 +134,20 @@ def main():
 
 
     # Create windows
-    name_segmented = 'Segmented'
     name_original = 'Original'
+    name_segmented = 'Segmented'
+    name_largest = 'Largest Object'
     name_canvas = 'Canvas'
-    cv2.namedWindow(name_segmented, cv2.WINDOW_AUTOSIZE)
+
     cv2.namedWindow(name_original, cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow(name_segmented, cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow(name_largest, cv2.WINDOW_AUTOSIZE)
     cv2.namedWindow(name_canvas, cv2.WINDOW_AUTOSIZE)
+
+    cv2.moveWindow(name_original, 100, 100)
+    cv2.moveWindow(name_segmented, image.shape[1] + 120, 100)
+    cv2.moveWindow(name_largest, image.shape[1] + 120, int(image.shape[0]/2) + 200)
+    cv2.moveWindow(name_canvas, int(image.shape[1]*1.5 + 200), 100)
 
 
     ## Create Blank Canvas
@@ -159,25 +178,27 @@ def main():
         ## Update image from camera
         _, image = capture.read()
         image = cv2.flip(image, 1)
-        cv2.imshow(name_original, image)
- 
+
         ## Update Segmented Image
         min, max = getLimits(limits)
         image_thresholded = cv2.inRange(image, min, max)
-        cv2.imshow(name_segmented, image_thresholded)
+        showResized(name_segmented, image_thresholded, 0.5)
+
 
         ## Find centroid and draw cross in camera
-        pencil['x'], pencil['y'] = getCentroid(image_thresholded)
+        if not pencil['use_mouse']:
+            pencil['x'], pencil['y'] = getCentroid(image_thresholded)
         image = drawCentroid(image, pencil['x'], pencil['y'])
         cv2.imshow(name_original, image)
 
         ## Draw in canvas
         canvas = drawLine(canvas, pencil, use_shake_prevention)
 
+
         ## TODO: Another window with only the largest component
 
-        ## Update Canvas
 
+        # Save position
         pencil['last_x'] = pencil['x']
         pencil['last_y'] = pencil['y']
 
@@ -204,7 +225,7 @@ def main():
 
         elif key == ord('w'): # w - save the current canvas
             drawing_filename = f"drawing_{ctime().replace(' ','_')}.png"
-            cv2.imwrite(drawing_filename,canvas)
+            cv2.imwrite(drawing_filename, canvas)
 
         elif key == ord('r'): # r - change pencil color to red
             pencil['color'] = (0, 0, 255)
@@ -219,7 +240,7 @@ def main():
             pencil['size'] += 1
 
         elif key == ord('-'): # - - decrease pencil size
-            pencil['size'] = pencil['size'] - 1 if pencil['size'] > 1 else 1
+            pencil['size'] -= 1 if pencil['size'] > 1 else 0
 
         elif key == ord('s'): # s - draw a square
             #TODO: Advanced Funcionality
