@@ -59,19 +59,28 @@ def showResized(name, image, resize):
     cv2.imshow(name, image)
 
 
-def getCentroid(image_thresh):
+def getCentroid(image_thresh, name_largest):
     _, thresh = cv2.threshold(image_thresh,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     connectivity = 4
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
+    num_labels, output, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
     max_idx = 1
     for i in range(1, len(stats)):
         max_idx = i if stats[i][4] > stats[max_idx][4] \
             else max_idx
 
+    area = stats[max_idx][4] if len(centroids) > 1 else 0
+    min_area = 100
+
+    # Show largest component
+    largest_component = np.zeros(output.shape)
+    if area > min_area:
+        largest_component[output == max_idx] = 255
+    showResized(name_largest, largest_component, 0.5)
+
     x = -1
     y = -1
 
-    if len(centroids) > 1 \
+    if area > min_area and len(centroids) > 1 \
             and (centroids[max_idx][0] + 0.5 != image_thresh.shape[1] / 2 \
             or centroids[max_idx][1] + 0.5 != image_thresh.shape[0] / 2):
         x = int(centroids[max_idx][0])
@@ -136,7 +145,7 @@ def main():
     # Create windows
     name_original = 'Original'
     name_segmented = 'Segmented'
-    name_largest = 'Largest Object'
+    name_largest = 'Largest Component'
     name_canvas = 'Canvas'
 
     cv2.namedWindow(name_original, cv2.WINDOW_AUTOSIZE)
@@ -146,9 +155,8 @@ def main():
 
     cv2.moveWindow(name_original, 100, 100)
     cv2.moveWindow(name_segmented, image.shape[1] + 120, 100)
-    cv2.moveWindow(name_largest, image.shape[1] + 120, int(image.shape[0]/2) + 200)
-    cv2.moveWindow(name_canvas, int(image.shape[1]*1.5 + 200), 100)
-
+    cv2.moveWindow(name_largest, image.shape[1] + 120, int(image.shape[0]/2) + 230)
+    cv2.moveWindow(name_canvas, int(image.shape[1]*1.5 + 190), 140)
 
     ## Create Blank Canvas
     canvas = np.zeros(image.shape, dtype=np.uint8)
@@ -187,16 +195,12 @@ def main():
 
         ## Find centroid and draw cross in camera
         if not pencil['use_mouse']:
-            pencil['x'], pencil['y'] = getCentroid(image_thresholded)
+            pencil['x'], pencil['y'] = getCentroid(image_thresholded, name_largest)
         image = drawCentroid(image, pencil['x'], pencil['y'])
         cv2.imshow(name_original, image)
 
         ## Draw in canvas
         canvas = drawLine(canvas, pencil, use_shake_prevention)
-
-
-        ## TODO: Another window with only the largest component
-
 
         # Save position
         pencil['last_x'] = pencil['x']
