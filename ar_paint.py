@@ -113,6 +113,21 @@ def drawLine(canvas, pencil, usp):
     return canvas
 
 
+def canvasMode(image, canvas, camera_mode):
+
+    if camera_mode:
+
+        # Overlay canvas drawing on camera (exclude background color with threshold)
+        canvas_cam = image.copy()
+        canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+        _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
+        canvas_cam[canvas_thresh==0] = canvas[canvas_thresh==0]
+        return canvas_cam
+
+    else:
+        return canvas
+
+
 def mouseMove(event, x, y, flags, params, pencil):
     if pencil['use_mouse']:
         if event == cv2.EVENT_MOUSEMOVE:
@@ -193,30 +208,27 @@ def main():
         showResized(name_segmented, image_thresholded, 0.5)
 
 
-        ## Find centroid and draw cross in camera
-        if not pencil['use_mouse']:
-            pencil['x'], pencil['y'] = getCentroid(image_thresholded, name_largest)
-        image = drawCentroid(image, pencil['x'], pencil['y'])
+        ## Find centroid and draw largest component
+        centroid = getCentroid(image_thresholded, name_largest)
+        image = drawCentroid(image, centroid[0], centroid[1])
         cv2.imshow(name_original, image)
 
+        if not pencil['use_mouse']:
+            pencil['x'], pencil['y'] = centroid
+
+
         ## Draw in canvas
-        canvas = drawLine(canvas, pencil, use_shake_prevention)
+        if pencil['x'] != -1 and pencil['y'] != -1:
+            canvas = drawLine(canvas, pencil, use_shake_prevention)
 
         # Save position
         pencil['last_x'] = pencil['x']
         pencil['last_y'] = pencil['y']
 
-        # Update image in canvas (check camera mode)
-        if camera_mode:
 
-            # Overlay canvas drawing on camera (exclude background color with threshold)
-            canvas_cam = image.copy()
-            canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
-            _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
-            canvas_cam[canvas_thresh==0] = canvas[canvas_thresh==0]
-            cv2.imshow(name_canvas, canvas_cam)
-        else:
-            cv2.imshow(name_canvas, canvas)
+        # Update image in canvas (check camera mode)
+        cv2.imshow(name_canvas, canvasMode(image, canvas, camera_mode))
+
 
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)

@@ -40,7 +40,7 @@ def mouseClick(event, x, y, flags, param, window_name, img_dict):
 
     if event == cv2.EVENT_LBUTTONDOWN:
         
-        image = img_dict["image"]
+        image = img_dict['image']
         b, g, r = image[y, x]
     
         range = 30
@@ -96,11 +96,17 @@ def main():
         cv2.createTrackbar(tb, name_segmented, trackbars[tb], 255, onTrackbar)
 
 
-    # Select camera - uses global variable to keep image in MouseCallback updated
+    # Select camera and get first frame
     capture = cv2.VideoCapture(0)
     _, image = capture.read()
     image = cv2.flip(image, 1)
-    img_dict = {"image": image}
+    img_dict = {'image': image}
+
+
+    # Move windows to starting pos
+    cv2.moveWindow(name_original, 100, 0)
+    cv2.moveWindow(name_segmented, image.shape[1] + 120, 0)
+
 
     # Create mouse callback
     cv2.setMouseCallback(name_original, partial(mouseClick, window_name=name_segmented, img_dict=img_dict))
@@ -111,7 +117,7 @@ def main():
         # Update image from camera
         _, image = capture.read()
         image = cv2.flip(image, 1)
-        img_dict["image"] = image
+        img_dict['image'] = image
         cv2.imshow(name_original, image)
 
 
