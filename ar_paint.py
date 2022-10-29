@@ -23,7 +23,7 @@ def args():
         help='Activate shake prevention.')
     parser.add_argument('-p', '--paint', type=str, 
         required=False,
-        help='Choose an image to paint. Options: Fire, ...')
+        help='Choose an image to paint. Options: Fire, Turtle & Bird')
 
     args = vars(parser.parse_args())
 
@@ -155,10 +155,10 @@ def main():
 
     if paint:
         paint = paint.lower()
-        if paint in ['fire']:
+        if paint in ['fire', 'turtle', 'bird']:
             image_to_paint = f'drawings/{paint}-blank.png'
             painted_image = f'drawings/{paint}-painted.png'
-        else: #TODO: Add the other drawings
+        else:
             print(f'{Fore.RED}Paint not available. Choose one of the following: Fire')
             return
 
