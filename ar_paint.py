@@ -21,10 +21,13 @@ def args():
     parser.add_argument('-usp', '--use_shake_prevention', action='store_true', default=False,
         required=False,
         help='Activate shake prevention.')
+    parser.add_argument('-p', '--paint', type=str, 
+        required=False,
+        help='Choose an image to paint. Options: Fire, ...')
 
     args = vars(parser.parse_args())
 
-    return args['json'], args['use_shake_prevention']
+    return args['json'], args['use_shake_prevention'], args['paint']
 
 
 def readJsonFile(filename):
@@ -113,17 +116,23 @@ def drawLine(canvas, pencil, usp):
     return canvas
 
 
-def canvasMode(image, canvas, camera_mode):
+def canvasMode(image, canvas, camera_mode, paint = None):
 
     if camera_mode:
-
         # Overlay canvas drawing on camera (exclude background color with threshold)
         canvas_cam = image.copy()
         canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
         _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
         canvas_cam[canvas_thresh==0] = canvas[canvas_thresh==0]
         return canvas_cam
-
+    elif paint is not None:
+        # Overlay canvas drawing on paint
+        canvas_paint = cv2.imread(paint)
+        canvas_paint = cv2.resize(canvas_paint, (image.shape[1], image.shape[0]), interpolation = cv2.INTER_AREA)
+        canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+        _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
+        canvas_paint[canvas_thresh==0] = canvas[canvas_thresh==0]
+        return canvas_paint
     else:
         return canvas
 
@@ -142,7 +151,16 @@ def main():
     # ---------------------
 
     ### define and read arguments
-    json_file, use_shake_prevention = args()
+    json_file, use_shake_prevention, paint = args()
+
+    if paint:
+        paint = paint.lower()
+        if paint in ['fire']:
+            image_to_paint = f'drawings/{paint}-blank.png'
+            painted_image = f'drawings/{paint}-painted.png'
+        else: #TODO: Add the other drawings
+            print(f'{Fore.RED}Paint not available. Choose one of the following: Fire')
+            return
 
     try:
         limits = readJsonFile(json_file)
@@ -180,7 +198,7 @@ def main():
 
 
     # Initial pencil properties
-    pencil = {'x': -1,
+    pencil = {  'x': -1,
                 'y': -1,
                 'last_x': -1,
                 'last_y': -1,
@@ -227,7 +245,8 @@ def main():
 
 
         # Update image in canvas (check camera mode)
-        cv2.imshow(name_canvas, canvasMode(image, canvas, camera_mode))
+        final_image = canvasMode(image, canvas, camera_mode, paint = image_to_paint if paint else None)
+        cv2.imshow(name_canvas, final_image)
 
 
         # Keyboard inputs
@@ -241,7 +260,7 @@ def main():
 
         elif key == ord('w'): # w - save the current canvas
             drawing_filename = f"drawing_{ctime().replace(' ','_')}.png"
-            cv2.imwrite(drawing_filename, canvas)
+            cv2.imwrite(drawing_filename, final_image)
 
         elif key == ord('r'): # r - change pencil color to red
             pencil['color'] = (0, 0, 255)
