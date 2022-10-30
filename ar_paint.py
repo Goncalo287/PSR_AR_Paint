@@ -147,14 +147,17 @@ def calculateAccuracy(image_to_paint, image_painted, canvas): #TODO: Improve thi
 
     diff = diff.astype(np.uint8)
 
-    initial_percentage = 100 - (np.count_nonzero(diff) * 100)/ diff.size
+    ## Get initial difference between the images
+    initial_percentage = 100 - (np.count_nonzero(diff) * 100)/ diff.size 
 
     diff = cv2.absdiff(image_painted, canvas)
     
     diff = diff.astype(np.uint8)
 
+    ## Get final difference between images and subtract the initial difference
     accuracy = abs((100 - (np.count_nonzero(diff) * 100)/ diff.size) - initial_percentage)
 
+    ## Convert to percentage from 0-100%
     accuracy = (accuracy * 100) / (100-initial_percentage)
 
     return accuracy
