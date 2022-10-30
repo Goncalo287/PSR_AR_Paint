@@ -136,6 +136,29 @@ def canvasMode(image, canvas, camera_mode, paint = None):
     else:
         return canvas
 
+def calculateAccuracy(image_to_paint, image_painted, canvas): #TODO: Improve this method
+    image_to_paint = cv2.imread(image_to_paint)
+    image_to_paint = cv2.resize(image_to_paint, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
+
+    image_painted = cv2.imread(image_painted)
+    image_painted = cv2.resize(image_painted, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
+
+    diff = cv2.absdiff(image_to_paint, image_painted)
+
+    diff = diff.astype(np.uint8)
+
+    initial_percentage = 100 - (np.count_nonzero(diff) * 100)/ diff.size
+
+    diff = cv2.absdiff(image_painted, canvas)
+    
+    diff = diff.astype(np.uint8)
+
+    accuracy = abs((100 - (np.count_nonzero(diff) * 100)/ diff.size) - initial_percentage)
+
+    accuracy = (accuracy * 100) / (100-initial_percentage)
+
+    return accuracy
+
 
 def mouseMove(event, x, y, flags, params, pencil):
     if pencil['use_mouse']:
@@ -247,6 +270,9 @@ def main():
         # Update image in canvas (check camera mode)
         final_image = canvasMode(image, canvas, camera_mode, paint = image_to_paint if paint else None)
         cv2.imshow(name_canvas, final_image)
+        if paint:
+            accuracy = calculateAccuracy(image_to_paint, painted_image, final_image)
+            print(f'Accuracy: {accuracy}%')
 
 
         # Keyboard inputs
