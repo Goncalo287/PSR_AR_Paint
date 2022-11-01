@@ -136,47 +136,42 @@ def canvasMode(image, canvas, camera_mode, paint = None):
     else:
         return canvas
 
+def getColorAccuracy(bitwise_and, bitwise_or):
+    bitwise_and[bitwise_and > 0] = 1
+    bitwise_or[bitwise_or > 0] = 1
+    color_painted = sum(sum(bitwise_and))
+    total_color = sum(sum(bitwise_or))
+    color_accuracy = (color_painted / total_color) * 100
+
+    return color_accuracy, color_painted, total_color
+
 def calculateAccuracy(canvas, painted_image):
 
-    # convert the images to HSV format
+    ## Define lower and upper color values
+    lower_red = np.array([0,50,50])
+    upper_red = np.array([10,255,255])
+
+    lower_blue = np.array([110,50,50])
+    upper_blue = np.array([130,255,255])
+
+    lower_green = np.array([50,100,100])
+    upper_green = np.array([70,255,255])
+
+    ## Create masks for the colors on canvas
     canvas_hsv = cv2.cvtColor(canvas, cv2.COLOR_BGR2HSV)
-    red = cv2.inRange(canvas_hsv, (0, 50, 70), (9, 255, 255))
-    green = cv2.inRange(canvas_hsv, (36, 25, 25), (70, 255, 255))
-    blue = cv2.inRange(canvas_hsv, (110, 50, 50), (130, 255, 255))
+    red = cv2.inRange(canvas_hsv, lower_red, upper_red)
+    green = cv2.inRange(canvas_hsv, lower_green, upper_green)
+    blue = cv2.inRange(canvas_hsv, lower_blue, upper_blue)
+
+    ## Create masks for the colors on the painted image
     painted_hsv = cv2.cvtColor(painted_image, cv2.COLOR_BGR2HSV)
-    red_painted = cv2.inRange(painted_hsv, (0, 50, 70), (9, 255, 255))
-    green_painted = cv2.inRange(painted_hsv, (36, 25, 25), (70, 255, 255))
-    blue_painted = cv2.inRange(painted_hsv, (110, 50, 50), (130, 255, 255))
+    red_painted = cv2.inRange(painted_hsv, lower_red, upper_red)
+    green_painted = cv2.inRange(painted_hsv, lower_green, upper_green)
+    blue_painted = cv2.inRange(painted_hsv, lower_blue, upper_blue)
 
-    # Get the canvas painted areas
-    bitwise_and_red = cv2.bitwise_and(red_painted, red)
-    bitwise_and_green = cv2.bitwise_and(green_painted, green)
-    bitwise_and_blue = cv2.bitwise_and(blue_painted, blue)
-    # Get the painted_image painted areas
-    bitwise_or_red = cv2.bitwise_or(red, red_painted)
-    bitwise_or_green = cv2.bitwise_or(green, green_painted)
-    bitwise_or_blue = cv2.bitwise_or(blue, blue_painted)
-
-    # calculate red accuracy
-    bitwise_or_red[bitwise_or_red > 0] = 1
-    bitwise_and_red[bitwise_and_red > 0] = 1
-    red_painted = sum(sum(bitwise_and_red))
-    total_red = sum(sum(bitwise_or_red))
-    red_accuracy = (red_painted / total_red) * 100
-
-    # calculate green accuracy
-    bitwise_or_green[bitwise_or_green > 0] = 1
-    bitwise_and_green[bitwise_and_green > 0] = 1
-    green_painted = sum(sum(bitwise_and_green))
-    total_green = sum(sum(bitwise_or_green))
-    green_accuracy = (green_painted / total_green) * 100
-
-    # calculate blue accuracy
-    bitwise_or_blue[bitwise_or_blue > 0] = 1
-    bitwise_and_blue[bitwise_and_blue > 0] = 1
-    blue_painted = sum(sum(bitwise_and_blue))
-    total_blue = sum(sum(bitwise_or_blue))
-    blue_accuracy = (blue_painted / total_blue) * 100
+    red_accuracy, red_painted, total_red = getColorAccuracy(cv2.bitwise_and(red_painted, red), cv2.bitwise_or(red, red_painted))
+    green_accuracy, green_painted, total_green = getColorAccuracy(cv2.bitwise_and(green_painted, green), cv2.bitwise_or(green, green_painted))
+    blue_accuracy, blue_painted, total_blue = getColorAccuracy(cv2.bitwise_and(blue_painted, blue), cv2.bitwise_or(blue, blue_painted))
 
     # calculate painting accuracy
     painting_accuracy = (blue_painted + green_painted + red_painted) / (total_red + total_blue + total_green) * 100
@@ -186,31 +181,6 @@ def calculateAccuracy(canvas, painted_image):
     print(Fore.GREEN + 'Current GREEN Accuracy: ' + str(green_accuracy) + Style.RESET_ALL)
     print(Fore.BLUE + 'Current BLUE Accuracy: ' + str(blue_accuracy) + Style.RESET_ALL)
     print('Current PAINTING Accuracy: '+ f"{Fore.RED if painting_accuracy < 50 else Fore.GREEN }" + str(painting_accuracy) + Style.RESET_ALL)
-
-'''
-def calculateAccuracy(image_to_paint, image_painted, canvas): #TODO: Improve this method
-    diff = cv2.absdiff(image_to_paint, image_painted)
-
-    diff = diff.astype(np.uint8)
-
-    ## Get initial difference between the images
-    initial_percentage = 100 - ((np.count_nonzero(diff) * 100) / diff.size)
-
-    diff = cv2.absdiff(image_painted, canvas)
-    
-    diff = diff.astype(np.uint8)
-
-    ## Get final difference between images and subtract the initial difference
-    accuracy = (100 - (np.count_nonzero(diff) * 100) / diff.size)
-    print(accuracy - initial_percentage)
-    accuracy = accuracy - initial_percentage if accuracy - initial_percentage >= 0 else 0
-    return (accuracy *100)/(100-initial_percentage) if accuracy <= 100-initial_percentage else 100
-
-    ## Convert to percentage from 0-100%
-    accuracy = (accuracy * 100) / (100-initial_percentage)
-
-    return accuracy
-'''
 
 def mouseMove(event, x, y, flags, params, pencil):
     if pencil['use_mouse']:
@@ -266,14 +236,14 @@ def main():
 
     if paint:
         paint = paint.lower()
-        if paint in ['fire', 'turtle', 'bird']:
+        try:
             image_to_paint = cv2.imread(f'drawings/{paint}-blank.png')
             image_to_paint = cv2.resize(image_to_paint, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
             painted_image = cv2.imread(f'drawings/{paint}-painted.png')
             painted_image = cv2.resize(painted_image, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
-        else:
+        except FileNotFoundError:
             print(f'{Fore.RED}Paint not available. Choose one of the following: Fire')
-            return
+            exit()
 
 
     # Initial pencil properties
@@ -328,8 +298,6 @@ def main():
         cv2.imshow(name_canvas, final_image)
         if paint:
             calculateAccuracy(final_image, painted_image)
-            #accuracy = calculateAccuracy(image_to_paint, painted_image, final_image)
-            #print(f'Accuracy: {accuracy}%')
 
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
