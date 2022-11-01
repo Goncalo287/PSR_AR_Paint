@@ -9,6 +9,7 @@ import json
 from colorama import Fore, Style, init
 from math import sqrt
 from functools import partial
+from draw_objects import main_objects
 
 init(autoreset=True)        # Initialize colorama
 
@@ -307,16 +308,22 @@ def main():
             pencil['size'] -= 1 if pencil['size'] > 1 else 0
 
         elif key == ord('s'): # s - draw a square
-            #TODO: Advanced Funcionality
-            pass
+            shape = 1
+            color = (0,255,255)
+            thickness = (2)
+            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))            
 
         elif key == ord('e'): # e - draw an ellipse
-            #TODO: Advanced Funcionality
-            pass
+            shape = 3
+            color = (0,0,255)
+            thickness = (2)
+            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))
 
         elif key == ord('o'): # o - draw a circle
-            #TODO: Advanced Funcionality
-            pass
+            shape = 2
+            color = (255,0,0)
+            thickness = (2)
+            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))
         
         elif key == ord('m'): # m - toggle camera Mode
             camera_mode = False if camera_mode else True
