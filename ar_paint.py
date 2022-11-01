@@ -128,8 +128,7 @@ def canvasMode(image, canvas, camera_mode, paint = None):
         return canvas_cam
     elif paint is not None:
         # Overlay canvas drawing on paint
-        canvas_paint = cv2.imread(paint)
-        canvas_paint = cv2.resize(canvas_paint, (image.shape[1], image.shape[0]), interpolation = cv2.INTER_AREA)
+        canvas_paint = paint.copy()
         canvas_gray= cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
         _, canvas_thresh = cv2.threshold(canvas_gray, 254, 255, cv2.THRESH_BINARY)
         canvas_paint[canvas_thresh==0] = canvas[canvas_thresh==0]
@@ -137,38 +136,88 @@ def canvasMode(image, canvas, camera_mode, paint = None):
     else:
         return canvas
 
+def calculateAccuracy(canvas, painted_image):
+
+    # convert the images to HSV format
+    canvas_hsv = cv2.cvtColor(canvas, cv2.COLOR_BGR2HSV)
+    red = cv2.inRange(canvas_hsv, (0, 50, 70), (9, 255, 255))
+    green = cv2.inRange(canvas_hsv, (36, 25, 25), (70, 255, 255))
+    blue = cv2.inRange(canvas_hsv, (110, 50, 50), (130, 255, 255))
+    painted_hsv = cv2.cvtColor(painted_image, cv2.COLOR_BGR2HSV)
+    red_painted = cv2.inRange(painted_hsv, (0, 50, 70), (9, 255, 255))
+    green_painted = cv2.inRange(painted_hsv, (36, 25, 25), (70, 255, 255))
+    blue_painted = cv2.inRange(painted_hsv, (110, 50, 50), (130, 255, 255))
+
+    # Get the canvas painted areas
+    bitwise_and_red = cv2.bitwise_and(red_painted, red)
+    bitwise_and_green = cv2.bitwise_and(green_painted, green)
+    bitwise_and_blue = cv2.bitwise_and(blue_painted, blue)
+    # Get the painted_image painted areas
+    bitwise_or_red = cv2.bitwise_or(red, red_painted)
+    bitwise_or_green = cv2.bitwise_or(green, green_painted)
+    bitwise_or_blue = cv2.bitwise_or(blue, blue_painted)
+
+    # calculate red accuracy
+    bitwise_or_red[bitwise_or_red > 0] = 1
+    bitwise_and_red[bitwise_and_red > 0] = 1
+    red_painted = sum(sum(bitwise_and_red))
+    total_red = sum(sum(bitwise_or_red))
+    red_accuracy = (red_painted / total_red) * 100
+
+    # calculate green accuracy
+    bitwise_or_green[bitwise_or_green > 0] = 1
+    bitwise_and_green[bitwise_and_green > 0] = 1
+    green_painted = sum(sum(bitwise_and_green))
+    total_green = sum(sum(bitwise_or_green))
+    green_accuracy = (green_painted / total_green) * 100
+
+    # calculate blue accuracy
+    bitwise_or_blue[bitwise_or_blue > 0] = 1
+    bitwise_and_blue[bitwise_and_blue > 0] = 1
+    blue_painted = sum(sum(bitwise_and_blue))
+    total_blue = sum(sum(bitwise_or_blue))
+    blue_accuracy = (blue_painted / total_blue) * 100
+
+    # calculate painting accuracy
+    painting_accuracy = (blue_painted + green_painted + red_painted) / (total_red + total_blue + total_green) * 100
+
+    print('\n'*50)
+    print(Fore.RED + 'Current RED Accuracy: ' + str(red_accuracy) + Style.RESET_ALL)
+    print(Fore.GREEN + 'Current GREEN Accuracy: ' + str(green_accuracy) + Style.RESET_ALL)
+    print(Fore.BLUE + 'Current BLUE Accuracy: ' + str(blue_accuracy) + Style.RESET_ALL)
+    print('Current PAINTING Accuracy: '+ f"{Fore.RED if painting_accuracy < 50 else Fore.GREEN }" + str(painting_accuracy) + Style.RESET_ALL)
+
+'''
 def calculateAccuracy(image_to_paint, image_painted, canvas): #TODO: Improve this method
-    image_to_paint = cv2.imread(image_to_paint)
-    image_to_paint = cv2.resize(image_to_paint, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
-
-    image_painted = cv2.imread(image_painted)
-    image_painted = cv2.resize(image_painted, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
-
     diff = cv2.absdiff(image_to_paint, image_painted)
 
     diff = diff.astype(np.uint8)
 
     ## Get initial difference between the images
-    initial_percentage = 100 - (np.count_nonzero(diff) * 100)/ diff.size 
+    initial_percentage = 100 - ((np.count_nonzero(diff) * 100) / diff.size)
 
     diff = cv2.absdiff(image_painted, canvas)
     
     diff = diff.astype(np.uint8)
 
     ## Get final difference between images and subtract the initial difference
-    accuracy = abs((100 - (np.count_nonzero(diff) * 100)/ diff.size) - initial_percentage)
+    accuracy = (100 - (np.count_nonzero(diff) * 100) / diff.size)
+    print(accuracy - initial_percentage)
+    accuracy = accuracy - initial_percentage if accuracy - initial_percentage >= 0 else 0
+    return (accuracy *100)/(100-initial_percentage) if accuracy <= 100-initial_percentage else 100
 
     ## Convert to percentage from 0-100%
     accuracy = (accuracy * 100) / (100-initial_percentage)
 
     return accuracy
-
+'''
 
 def mouseMove(event, x, y, flags, params, pencil):
     if pencil['use_mouse']:
         if event == cv2.EVENT_MOUSEMOVE:
             pencil['x'] = x
             pencil['y'] = y
+
 
 
 def main():
@@ -179,15 +228,6 @@ def main():
 
     ### define and read arguments
     json_file, use_shake_prevention, paint = args()
-
-    if paint:
-        paint = paint.lower()
-        if paint in ['fire', 'turtle', 'bird']:
-            image_to_paint = f'drawings/{paint}-blank.png'
-            painted_image = f'drawings/{paint}-painted.png'
-        else:
-            print(f'{Fore.RED}Paint not available. Choose one of the following: Fire')
-            return
 
     try:
         limits = readJsonFile(json_file)
@@ -222,6 +262,18 @@ def main():
     canvas = np.zeros(image.shape, dtype=np.uint8)
     canvas.fill(255)
     cv2.imshow(name_canvas, canvas)
+
+
+    if paint:
+        paint = paint.lower()
+        if paint in ['fire', 'turtle', 'bird']:
+            image_to_paint = cv2.imread(f'drawings/{paint}-blank.png')
+            image_to_paint = cv2.resize(image_to_paint, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
+            painted_image = cv2.imread(f'drawings/{paint}-painted.png')
+            painted_image = cv2.resize(painted_image, (canvas.shape[1], canvas.shape[0]), interpolation = cv2.INTER_AREA)
+        else:
+            print(f'{Fore.RED}Paint not available. Choose one of the following: Fire')
+            return
 
 
     # Initial pencil properties
@@ -275,9 +327,9 @@ def main():
         final_image = canvasMode(image, canvas, camera_mode, paint = image_to_paint if paint else None)
         cv2.imshow(name_canvas, final_image)
         if paint:
-            accuracy = calculateAccuracy(image_to_paint, painted_image, final_image)
-            print(f'Accuracy: {accuracy}%')
-
+            calculateAccuracy(final_image, painted_image)
+            #accuracy = calculateAccuracy(image_to_paint, painted_image, final_image)
+            #print(f'Accuracy: {accuracy}%')
 
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
