@@ -7,9 +7,9 @@ import numpy as np
 from time import ctime
 import json
 from colorama import Fore, Style, init
-from math import sqrt
+import math
 from functools import partial
-from draw_objects import main_objects
+#from draw_objects import main_objects
 
 init(autoreset=True)        # Initialize colorama
 
@@ -108,7 +108,7 @@ def drawLine(canvas, pencil, usp):
 
     if last_x != -1 and last_y != -1:
         if usp:
-            distance = sqrt((last_x-x)**2+(last_y-y)**2)
+            distance = math.sqrt((last_x-x)**2+(last_y-y)**2)
             if distance > 100:
                 last_x = int(x)
                 last_y = int(y)
@@ -212,11 +212,91 @@ def calculateAccuracy(image_to_paint, image_painted, canvas): #TODO: Improve thi
     return accuracy
 '''
 
-def mouseMove(event, x, y, flags, params, pencil):
+#Function for calculating distance between two points in a plane 
+def distance(current_location, previous_location):
+    return int(math.sqrt(
+        math.pow(current_location[0] - previous_location[0], 2) + math.pow(current_location[1] - previous_location[1],
+                                                                           2)))
+
+#Used for creation of ellipses
+def angle(x1, x2, y1, y2):
+    return math.degrees(math.atan2(y2 - y1, x2 - x1))
+
+
+def mouseMove(event, x, y, flags, params, pencil, shape):
     if pencil['use_mouse']:
-        if event == cv2.EVENT_MOUSEMOVE:
+
+        img = shape['canvas']
+        color = pencil['color']
+        thickness = pencil['size']
+        start_point = (shape['start_x'], shape['start_y'])
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+
+            # start drawing and save starting point
+            shape['drawing'] = True
+            shape['start_x'] = x
+            shape['start_y'] = y
+ 
+        elif event == cv2.EVENT_MOUSEMOVE:
+
+            # Move pencil position
             pencil['x'] = x
             pencil['y'] = y
+
+
+            # Draw shapes
+            if shape['drawing']:
+                copied_image = img.copy()
+                if shape['shape'] == 1:
+                    cv2.rectangle(copied_image, start_point, (x, y), color, thickness)
+                if shape['shape'] == 2:
+                    cv2.circle(copied_image, start_point, distance((x, y), start_point), color, thickness)
+                if shape['shape'] == 3:
+                    cv2.ellipse(copied_image, start_point, (abs(x - start_point[0]), abs(y - start_point[1])),
+                                angle(start_point[0], x, start_point[1], y),
+                                0., 360, color, thickness)
+                shape['canvas_drawing'] = copied_image
+            else:
+                shape['canvas_drawing'] = img
+
+        elif event == cv2.EVENT_LBUTTONUP:
+            shape['drawing'] = False
+
+            if shape['shape'] == 1:
+                cv2.rectangle(img, start_point, (x, y), color=color, thickness=thickness)
+            if shape['shape'] == 2:
+                cv2.circle(img, start_point, distance((x, y), start_point), color, thickness)
+            if shape['shape'] == 3:
+                cv2.ellipse(img, start_point, (abs(x - start_point[0]), abs(y - start_point[1])), angle(start_point[0], x, start_point[1], y), 0.,
+                            360, color,
+                            thickness)
+
+            shape['start_x'] = -1
+            shape['start_y'] = -1
+
+
+def drawShape(pencil, shape):
+    x = pencil['x']
+    y = pencil['y']
+
+    img = shape['canvas']
+    color = pencil['color']
+    thickness = pencil['size']
+    start_point = (shape['start_x'], shape['start_y'])
+
+    copied_image = img.copy()
+    if shape['shape'] == 1:
+        cv2.rectangle(copied_image, start_point, (x, y), color, thickness)
+    if shape['shape'] == 2:
+        cv2.circle(copied_image, start_point, distance((x, y), start_point), color, thickness)
+    if shape['shape'] == 3:
+        cv2.ellipse(copied_image, start_point, (abs(x - start_point[0]), abs(y - start_point[1])),
+                    angle(start_point[0], x, start_point[1], y),
+                    0., 360, color, thickness)
+    shape['canvas_drawing'] = copied_image
+
+
 
 
 
@@ -281,13 +361,24 @@ def main():
                 'y': -1,
                 'last_x': -1,
                 'last_y': -1,
-                'color': (0, 0, 0),
-                'size': 1,
+                'color': (255, 0, 0),
+                'size': 10,
                 'use_mouse': False}
+    
+    shape = {   'shape': 0,
+                'drawing': False,
+                'start_x': -1,
+                'start_y': -1,
+                'canvas': canvas,
+                'canvas_name': name_canvas,
+                'canvas_drawing': canvas}
 
-    cv2.setMouseCallback(name_canvas, partial(mouseMove, pencil=pencil))
+
+    cv2.setMouseCallback(name_canvas, partial(mouseMove, pencil=pencil, shape=shape))
     camera_mode = False
-
+    circle = False
+    ellipse = False
+    square = False
 
     # ---------------------
     #      Main loop
@@ -315,7 +406,7 @@ def main():
 
 
         ## Draw in canvas
-        if pencil['x'] != -1 and pencil['y'] != -1:
+        if pencil['x'] != -1 and pencil['y'] != -1 and shape['shape'] == 0:
             canvas = drawLine(canvas, pencil, use_shake_prevention)
 
         # Save position
@@ -323,8 +414,17 @@ def main():
         pencil['last_y'] = pencil['y']
 
 
+        # Draw with centroid
+        if shape['shape'] != 0 and not pencil['use_mouse']:
+            drawShape(pencil, shape)
+
+        # Use normal canvas or shape from mousecallback
+        canvas_updated = shape['canvas_drawing'] if shape['shape'] != 0 else canvas
+
+
         # Update image in canvas (check camera mode)
-        final_image = canvasMode(image, canvas, camera_mode, paint = image_to_paint if paint else None)
+        final_image = canvasMode(image, canvas_updated, camera_mode, paint = image_to_paint if paint else None)
+
         cv2.imshow(name_canvas, final_image)
         if paint:
             calculateAccuracy(final_image, painted_image)
@@ -360,23 +460,38 @@ def main():
             pencil['size'] -= 1 if pencil['size'] > 1 else 0
 
         elif key == ord('s'): # s - draw a square
-            shape = 1
-            color = (0,255,255)
-            thickness = (2)
-            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))            
+            square = not square
+            if square:
+                shape['shape'] = 1
+                shape['start_x'] = pencil['x']
+                shape['start_y'] = pencil['y']
+            elif not square:
+                canvas = shape['canvas_drawing']
+                shape['canvas'] = canvas
+                shape['shape'] = 0
 
         elif key == ord('e'): # e - draw an ellipse
-            shape = 3
-            color = (0,0,255)
-            thickness = (2)
-            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))
+            ellipse = not ellipse
+            if ellipse:
+                shape['shape'] = 3
+                shape['start_x'] = pencil['x']
+                shape['start_y'] = pencil['y']
+            if not ellipse:
+                canvas = shape['canvas_drawing']
+                shape['canvas'] = canvas
+                shape['shape'] = 0
 
         elif key == ord('o'): # o - draw a circle
-            shape = 2
-            color = (255,0,0)
-            thickness = (2)
-            cv2.setMouseCallback(name_canvas,partial(main_objects,image_name=name_canvas, img=final_image, shape=shape,color=color, thickness=thickness))
-        
+            circle = not circle
+            if circle:
+                shape['shape'] = 2
+                shape['start_x'] = pencil['x']
+                shape['start_y'] = pencil['y']
+            elif not circle:
+                canvas = shape['canvas_drawing']
+                shape['canvas'] = canvas
+                shape['shape'] = 0
+
         elif key == ord('m'): # m - toggle camera Mode
             camera_mode = False if camera_mode else True
 
