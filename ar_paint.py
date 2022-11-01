@@ -224,8 +224,13 @@ def mouseMove(event, x, y, flags, params, pencil, shape):
                 if shape['shape'] == 2:
                     cv2.circle(copied_image, start_point, distance((x, y), start_point), color, thickness)
                 if shape['shape'] == 3:
-                    cv2.ellipse(copied_image, start_point, (abs(x - start_point[0]), abs(y - start_point[1])),
-                                angle(start_point[0], x, start_point[1], y),
+                    size_x = (x - start_point[0])//2
+                    size_y = (y - start_point[1])//2
+                    center_x = start_point[0] + size_x
+                    center_y = start_point[1] + size_y
+
+                    cv2.ellipse(copied_image, (center_x, center_y), (abs(size_x), abs(size_y)),
+                                0,
                                 0., 360, color, thickness)
                 shape['canvas_drawing'] = copied_image
             else:
@@ -239,10 +244,16 @@ def mouseMove(event, x, y, flags, params, pencil, shape):
             if shape['shape'] == 2:
                 cv2.circle(img, start_point, distance((x, y), start_point), color, thickness)
             if shape['shape'] == 3:
-                cv2.ellipse(img, start_point, (abs(x - start_point[0]), abs(y - start_point[1])), angle(start_point[0], x, start_point[1], y), 0.,
-                            360, color,
-                            thickness)
+                size_x = (x - start_point[0])//2
+                size_y = (y - start_point[1])//2
+                center_x = start_point[0] + size_x
+                center_y = start_point[1] + size_y
 
+                cv2.ellipse(img, (center_x, center_y), (abs(size_x), abs(size_y)),
+                            0,
+                            0., 360, color, thickness)
+
+            shape['canvas_drawing'] = img
             shape['start_x'] = -1
             shape['start_y'] = -1
 
@@ -262,8 +273,13 @@ def drawShape(pencil, shape):
     if shape['shape'] == 2:
         cv2.circle(copied_image, start_point, distance((x, y), start_point), color, thickness)
     if shape['shape'] == 3:
-        cv2.ellipse(copied_image, start_point, (abs(x - start_point[0]), abs(y - start_point[1])),
-                    angle(start_point[0], x, start_point[1], y),
+        size_x = (x - start_point[0])//2
+        size_y = (y - start_point[1])//2
+        center_x = start_point[0] + size_x
+        center_y = start_point[1] + size_y
+
+        cv2.ellipse(copied_image, (center_x, center_y), (abs(size_x), abs(size_y)),
+                    0,
                     0., 360, color, thickness)
     shape['canvas_drawing'] = copied_image
 
@@ -377,17 +393,21 @@ def main():
 
 
         ## Draw in canvas
-        if pencil['x'] != -1 and pencil['y'] != -1 and shape['shape'] == 0:
-            canvas = drawLine(canvas, pencil, use_shake_prevention)
+        if pencil['x'] != -1 and pencil['y'] != -1:
+
+            # Normal pencil
+            if shape['shape'] == 0:
+                canvas = drawLine(canvas, pencil, use_shake_prevention)
+            
+            # Draw shapes
+            else:
+                if not pencil['use_mouse'] and shape['start_x'] != -1 and shape['start_y'] != -1:
+                    drawShape(pencil, shape)
+
 
         # Save position
         pencil['last_x'] = pencil['x']
         pencil['last_y'] = pencil['y']
-
-
-        # Draw with centroid
-        if shape['shape'] != 0 and not pencil['use_mouse']:
-            drawShape(pencil, shape)
 
         # Use normal canvas or shape from mousecallback
         canvas_updated = shape['canvas_drawing'] if shape['shape'] != 0 else canvas
@@ -400,14 +420,25 @@ def main():
         if paint:
             calculateAccuracy(final_image, painted_image)
 
+
+
+
+
+
         # Keyboard inputs
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
     
         if key == ord('q') or key == 27:  # q or ESC - quit without saving
             break
 
-        elif key == ord('c'): # c - clear the canvas
+        elif key == ord('c'): # c - clear the canvas and stop shape drawing
             canvas.fill(255)
+            shape['drawing'] = False
+            shape['shape'] = 0
+            shape['start_x'] = -1
+            shape['start_y'] = -1
+            shape['canvas_drawing'] = canvas
+            square, ellipse, circle = False, False, False
 
         elif key == ord('w'): # w - save the current canvas
             drawing_filename = f"drawing_{ctime().replace(' ','_')}.png"
@@ -462,10 +493,16 @@ def main():
                 shape['shape'] = 0
 
         elif key == ord('m'): # m - toggle camera Mode
-            camera_mode = False if camera_mode else True
+            camera_mode = not camera_mode
 
-        elif key == ord('n'): # n - toggle mouse input
-            pencil['use_mouse'] = False if pencil['use_mouse'] else True
+        elif key == ord('n'): # n - toggle mouse input and stop shape drawing
+            pencil['use_mouse'] = not pencil['use_mouse']
+            shape['drawing'] = False
+            shape['shape'] = 0
+            shape['start_x'] = -1
+            shape['start_y'] = -1
+            shape['canvas_drawing'] = canvas
+            square, ellipse, circle = False, False, False
 
     cv2.destroyAllWindows()
 
