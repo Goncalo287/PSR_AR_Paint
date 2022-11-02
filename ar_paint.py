@@ -296,11 +296,6 @@ def distance(current_location, previous_location):
         math.pow(current_location[0] - previous_location[0], 2) + math.pow(current_location[1] - previous_location[1],
                                                                            2)))
 
-'''
-def angle(x1, x2, y1, y2):
-    return math.degrees(math.atan2(y2 - y1, x2 - x1))
-'''
-
 def drawShape(image, pencil, shape):
     '''
     Draws shapes in image
