@@ -11,7 +11,7 @@ This applications allows the user to draw on an image by moving a colored object
 
 The tools used for this effect are the ones that were made for the past classes (python, opencv, etc).
 
-We developed two separate scripts, one called color_segmenter.py, where we can choose the color range of the colored object to be tracked and the other called ar_paint.py that allows the user to drwan on the image.
+We developed two separate scripts, one called color_segmenter.py, where we can choose the color range of the colored object to be tracked and the other called ar_paint.py that allows the user to drawn on the image.
 
 ## Features
 
