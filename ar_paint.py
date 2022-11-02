@@ -14,6 +14,12 @@ init(autoreset=True)        # Initialize colorama
 
 
 def args():
+    '''
+    Define and parse command line arguments
+
+    Returns:
+        str: Path to json file, bool: Use Shake Detection Activation, bool: Paint mode Activation
+    '''
     parser = argparse.ArgumentParser(description='AR Paint usage')
     parser.add_argument('-j', '--json', type=str, default='limits.json',
         required=False,
@@ -31,12 +37,31 @@ def args():
 
 
 def readJsonFile(filename):
+    '''
+    Read json file
+
+    Args:
+        filename (str): Path to json file
+
+    Returns:
+        dict: Minimum and maximum color values
+    '''
     with open(filename, 'r') as f:
         limits = json.load(f)
     return limits['limits']
 
 
 def getLimits(limits):
+    '''
+    Get Colors Maximum and Minimum values
+
+    Args:
+        limits (dict): Dictionary with color limits
+
+    Returns:
+        list: Minimum value of colors
+        list: Maximum value of colors
+    '''
     min_b = limits['B']['min']
     min_g = limits['G']['min']
     min_r = limits['R']['min']
@@ -52,6 +77,14 @@ def getLimits(limits):
 
 
 def showResized(name, image, resize):
+    '''
+    Show resized image
+
+    Args:
+        name (str): Window name
+        image (numpy.ndarray): Image to Show
+        resize (float): Resize scale
+    '''
 
     (h, w) = image.shape[:2]
 
@@ -63,6 +96,17 @@ def showResized(name, image, resize):
 
 
 def getCentroid(image_thresh, name_largest):
+    '''
+    Get largest component centroid coordinates
+
+    Args:
+        image_thresh (numpy.ndarray): thresholded image
+        name_largest (str): window name
+
+    Returns:
+        float: x coordinate
+        float: y coordinate
+    '''
     _, thresh = cv2.threshold(image_thresh,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     connectivity = 4
     num_labels, output, stats, centroids = cv2.connectedComponentsWithStats(thresh , connectivity , cv2.CV_32S)
@@ -93,6 +137,17 @@ def getCentroid(image_thresh, name_largest):
 
 
 def drawCentroid(image, x, y):
+    '''
+    Draw centroid on image
+
+    Args:
+        image (numpy.ndarray): Current Webcam Image
+        x (float): Centroid X coordinate
+        y (float): Centroid Y coordinate
+
+    Returns:
+        numpy.ndarray: Image with an cross drawn on centroid
+    '''
     if x != -1 and y != -1:
         # Drawing cross on the webcam feed
         cv2.line(image, (int(x-10), int(y)), (int(x+10), int(y)), (0, 0, 255), 1)
@@ -102,6 +157,17 @@ def drawCentroid(image, x, y):
 
 
 def drawLine(canvas, pencil, usp):
+    '''
+    Draw line on canvas
+
+    Args:
+        canvas (numpy.ndarray): Canvas image
+        pencil (dict): Pencil Properties
+        usp (bool): Use Shake Prevention Mode
+
+    Returns:
+        numpy.ndarray: Canvas with line drawn
+    '''
     x, y = pencil['x'], pencil['y']
     last_x, last_y = pencil['last_x'], pencil['last_y']
 
@@ -117,7 +183,18 @@ def drawLine(canvas, pencil, usp):
 
 
 def canvasMode(image, canvas, camera_mode, paint = None):
+    '''
+    Compose a final image depending on the mode selected by the user
 
+    Args:
+        image (numpy.ndarray): Camera Image
+        canvas (numpy.ndarray): Canvas Image
+        camera_mode (bool): Camera Mode
+        paint (bool, optional): Paint Mode. Defaults to None.
+
+    Returns:
+        numpy.ndarray: Composed Image
+    '''
     if camera_mode:
         # Overlay canvas drawing on camera (exclude background color with threshold)
         canvas_cam = image.copy()
@@ -137,6 +214,18 @@ def canvasMode(image, canvas, camera_mode, paint = None):
 
 
 def getColorAccuracy(bitwise_and, bitwise_or):
+    '''
+    Calculate color accuracy
+
+    Args:
+        bitwise_and (_type_): _description_
+        bitwise_or (_type_): _description_
+
+    Returns:
+        float: color accuracy
+        float: painted pixels
+        float: total painted pixels
+    '''
     bitwise_and[bitwise_and > 0] = 1
     bitwise_or[bitwise_or > 0] = 1
     color_painted = sum(sum(bitwise_and))
@@ -147,6 +236,13 @@ def getColorAccuracy(bitwise_and, bitwise_or):
 
 
 def calculateAccuracy(canvas, painted_image):
+    '''
+    Calculate Paiting Accuracy
+
+    Args:
+        canvas (numpy.ndarray): Canvas Image
+        painted_image (numpy.ndarray): Original Painted Image
+    '''
 
     ## Define lower and upper color values
     lower_red = np.array([0,50,50])
@@ -185,25 +281,37 @@ def calculateAccuracy(canvas, painted_image):
 
 
 def distance(current_location, previous_location):
-    # Function for calculating distance between two points in a plane 
+    '''
+    Calculate distance between two points in a plane
+
+    Args:
+        current_location (tuple): X and Y coordinates of the current position
+        previous_location (tuple): X and Y coordinates of the previous position
+
+    Returns:
+        int: distance between the two points
+    ''' 
 
     return int(math.sqrt(
         math.pow(current_location[0] - previous_location[0], 2) + math.pow(current_location[1] - previous_location[1],
                                                                            2)))
 
-
+'''
 def angle(x1, x2, y1, y2):
-    # Used for creation of ellipses --- not used since elipses are defined by two corners now
     return math.degrees(math.atan2(y2 - y1, x2 - x1))
-
+'''
 
 def drawShape(image, pencil, shape):
-    """ Draws shapes in image
-    Inputs: image, where the shapes are drawn
-            pencil: dictionary with pencil properties
-            shape: dictionary with shape properties
-    Return: image, with the shapes
-    """
+    '''
+    Draws shapes in image
+    Args:
+        image (numpy.ndarray): where the shapes are drawn
+        pencil (dict): dictionary with pencil properties
+        shape (dict): dictionary with shape properties
+
+    Returns:
+        numpy.ndarray: Image with the shapes drawn
+    '''
 
     x = pencil['x']
     y = pencil['y']
@@ -230,13 +338,16 @@ def drawShape(image, pencil, shape):
 
 
 def mouseMove(event, x, y, flags, params, pencil, shape):
-    """
-    Inputs: default mouseCallBack;
-            pencil: dictionary with pencil properties
-            shape: dictionary with shape properties
-    Return: NOTHING, input dictionaries are updated instead
-    """
+    '''
+    Mouse Move Event
 
+    Args:
+        event, x, y, flags, params: Default mouseCallBack parameters
+        pencil (dict): dictionary with pencil properties
+        shape (dict): dictionary with shape properties
+    Returns:
+        nothing, input dictionaries are updated instead    
+    '''
 
     if pencil['use_mouse']:
 
@@ -271,12 +382,17 @@ def mouseMove(event, x, y, flags, params, pencil, shape):
 
 
 def selectShape(pencil, shape, new_id):
-    """
-    Inputs: pencil: dictionary with pencil properties
-            shape: dictionary with shape properties
-            new_id: shape id
-    Return: canvas (used to save shape creation to canvas)
-    """
+    '''
+    Select shape to be drawn
+
+    Args:
+        pencil (dict): dictionary with pencil properties
+        shape (dict): dictionary with shape properties
+        new_id (int): new shape id
+
+    Returns:
+        int: Id of the shape to be drawn 
+    '''
 
     # If already drawing this shape, save it to canvas
     if shape['id'] == new_id:
