@@ -542,7 +542,7 @@ def main():
 
         # Update image in canvas (check camera mode and paint mode)
         final_image = canvasMode(image, canvas_updated, camera_mode, paint = image_to_paint if paint else None)
-
+        final_image_overlays = final_image.copy()
 
         # Calculate and display accuracy
         if paint and not camera_mode:
@@ -555,18 +555,18 @@ def main():
                 else:
                     accuracy_str[i] = str(round(accuracy[i])) + "%"
 
-            cv2.putText(final_image, ("Accuracy: " + accuracy_str[3]), (10, 30), 1, 1.5, (0, 0, 0), 1)
-            cv2.putText(final_image, ("B: " + accuracy_str[0]), (10, 60), 1, 1.5, (0, 0, 0), 1)
-            cv2.putText(final_image, ("G: " + accuracy_str[1]), (10, 90), 1, 1.5, (0, 0, 0), 1)
-            cv2.putText(final_image, ("R: " + accuracy_str[2]), (10, 120), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image_overlays, ("Accuracy: " + accuracy_str[3]), (10, 30), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image_overlays, ("B: " + accuracy_str[0]), (10, 60), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image_overlays, ("G: " + accuracy_str[1]), (10, 90), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image_overlays, ("R: " + accuracy_str[2]), (10, 120), 1, 1.5, (0, 0, 0), 1)
 
-        
+
         # Show cursor on pencil position
         if pencil['x'] != -1 and pencil['y'] != -1:
-            cv2.circle(final_image, (pencil['x'], pencil['y']), pencil['size']//2, (0, 0, 0), 0)
+            cv2.circle(final_image_overlays, (pencil['x'], pencil['y']), pencil['size']//2, (0, 0, 0), 0)
 
 
-        cv2.imshow(name_canvas, final_image)
+        cv2.imshow(name_canvas, final_image_overlays)
 
 
         # Save current pencil position to use in the next cycle
