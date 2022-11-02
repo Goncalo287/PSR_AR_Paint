@@ -95,17 +95,19 @@ def showResized(name, image, resize):
     cv2.imshow(name, image)
 
 
-def getCentroid(image_thresh, name_largest):
+def getCentroid(image_thresh, name_largest, image):
     '''
-    Get largest component centroid coordinates
+    Get largest component centroid coordinates and highlight component in original image
 
     Args:
         image_thresh (numpy.ndarray): thresholded image
         name_largest (str): window name
+        image (numpy.ndarray): original image
 
     Returns:
         float: x coordinate
         float: y coordinate
+        image (numpy.ndarray): image with largest body edges highlighted
     '''
     _, thresh = cv2.threshold(image_thresh,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     connectivity = 4
@@ -119,10 +121,16 @@ def getCentroid(image_thresh, name_largest):
     min_area = 100
 
     # Show largest component
-    largest_component = np.zeros(output.shape)
+    largest_component = np.zeros(output.shape, dtype=np.uint8)
     if area > min_area:
         largest_component[output == max_idx] = 255
     showResized(name_largest, largest_component, 0.5)
+
+    # Highlight largest component in original image
+    largest_component = cv2.cvtColor(largest_component, cv2.COLOR_GRAY2BGR)
+    largest_component = cv2.GaussianBlur(largest_component, (5, 5), 0)
+    edges = cv2.Canny(image=largest_component, threshold1=200, threshold2=200)
+    image[edges==255] = (0,0,255)
 
     x = -1
     y = -1
@@ -133,7 +141,7 @@ def getCentroid(image_thresh, name_largest):
         x = int(centroids[max_idx][0])
         y = int(centroids[max_idx][1])
 
-    return x, y
+    return (x, y), image
 
 
 def drawCentroid(image, x, y):
@@ -230,7 +238,10 @@ def getColorAccuracy(bitwise_and, bitwise_or):
     bitwise_or[bitwise_or > 0] = 1
     color_painted = sum(sum(bitwise_and))
     total_color = sum(sum(bitwise_or))
-    color_accuracy = (color_painted / total_color) * 100
+    if total_color != 0:
+        color_accuracy = (color_painted / total_color) * 100
+    else:
+        color_accuracy = 0
 
     return color_accuracy, color_painted, total_color
 
@@ -273,11 +284,13 @@ def calculateAccuracy(canvas, painted_image):
     # calculate painting accuracy
     painting_accuracy = (blue_painted + green_painted + red_painted) / (total_red + total_blue + total_green) * 100
 
-    print('\n'*50)
-    print(Fore.RED + 'Current RED Accuracy: ' + str(red_accuracy) + Style.RESET_ALL)
-    print(Fore.GREEN + 'Current GREEN Accuracy: ' + str(green_accuracy) + Style.RESET_ALL)
-    print(Fore.BLUE + 'Current BLUE Accuracy: ' + str(blue_accuracy) + Style.RESET_ALL)
-    print('Current PAINTING Accuracy: '+ f"{Fore.RED if painting_accuracy < 50 else Fore.GREEN }" + str(painting_accuracy) + Style.RESET_ALL)
+    # print('\n'*50)
+    # print(Fore.RED + 'Current RED Accuracy: ' + str(red_accuracy) + Style.RESET_ALL)
+    # print(Fore.GREEN + 'Current GREEN Accuracy: ' + str(green_accuracy) + Style.RESET_ALL)
+    # print(Fore.BLUE + 'Current BLUE Accuracy: ' + str(blue_accuracy) + Style.RESET_ALL)
+    # print('Current PAINTING Accuracy: '+ f"{Fore.RED if painting_accuracy < 50 else Fore.GREEN }" + str(painting_accuracy) + Style.RESET_ALL)
+
+    return blue_accuracy, green_accuracy, red_accuracy, painting_accuracy
 
 
 def distance(current_location, previous_location):
@@ -295,6 +308,7 @@ def distance(current_location, previous_location):
     return int(math.sqrt(
         math.pow(current_location[0] - previous_location[0], 2) + math.pow(current_location[1] - previous_location[1],
                                                                            2)))
+
 
 def drawShape(image, pencil, shape):
     '''
@@ -475,7 +489,6 @@ def main():
                 'start_x': -1,
                 'start_y': -1,
                 'canvas': canvas,
-                'canvas_name': name_canvas,
                 'canvas_drawing': canvas}
 
 
@@ -499,7 +512,7 @@ def main():
 
 
         ## Find centroid and draw largest component
-        centroid = getCentroid(image_thresholded, name_largest)
+        centroid, image = getCentroid(image_thresholded, name_largest, image)
         image = drawCentroid(image, centroid[0], centroid[1])
         cv2.imshow(name_original, image)
 
@@ -529,12 +542,31 @@ def main():
 
         # Update image in canvas (check camera mode and paint mode)
         final_image = canvasMode(image, canvas_updated, camera_mode, paint = image_to_paint if paint else None)
+
+
+        # Calculate and display accuracy
+        if paint and not camera_mode:
+            accuracy = calculateAccuracy(final_image, painted_image)
+
+            accuracy_str = [0] * 4
+            for i in range(len(accuracy)):
+                if np.isnan(accuracy[i]):
+                    accuracy_str[i] = "unused"
+                else:
+                    accuracy_str[i] = str(round(accuracy[i])) + "%"
+
+            cv2.putText(final_image, ("Accuracy: " + accuracy_str[3]), (10, 30), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image, ("B: " + accuracy_str[0]), (10, 60), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image, ("G: " + accuracy_str[1]), (10, 90), 1, 1.5, (0, 0, 0), 1)
+            cv2.putText(final_image, ("R: " + accuracy_str[2]), (10, 120), 1, 1.5, (0, 0, 0), 1)
+
+        
+        # Show cursor on pencil position
+        if pencil['x'] != -1 and pencil['y'] != -1:
+            cv2.circle(final_image, (pencil['x'], pencil['y']), pencil['size']//2, (0, 0, 0), 0)
+
+
         cv2.imshow(name_canvas, final_image)
-
-
-        # Calculate accuracy
-        if paint:
-            calculateAccuracy(final_image, painted_image)
 
 
         # Save current pencil position to use in the next cycle
@@ -546,9 +578,11 @@ def main():
         key = cv2.waitKey(10) & 0xFF        # Only read last byte (prevent numlock)
     
         if key == ord('q') or key == 27:  # q or ESC - quit without saving
+            print("Program closed")
             break
 
         elif key == ord('c'): # c - clear the canvas and stop shape drawing
+            print("Cleared canvas")
             canvas.fill(255)
             shape['drawing'] = False
             shape['id'] = 0
@@ -558,36 +592,56 @@ def main():
         elif key == ord('w'): # w - save the current canvas
             drawing_filename = f"drawing_{ctime().replace(' ','_')}.png"
             cv2.imwrite(drawing_filename, final_image)
+            print("Saved image as: " + Style.BRIGHT + drawing_filename)
 
         elif key == ord('r'): # r - change pencil color to red
             pencil['color'] = (0, 0, 255)
+            print("Changed color to: " + Fore.RED + "Red")
 
         elif key == ord('g'): # g - change pencil color to green
             pencil['color'] = (0, 255, 0)
+            print("Changed color to: " + Fore.GREEN + "Green")
 
         elif key == ord('b'): # b - change pencil color to blue
             pencil['color'] = (255, 0, 0)
+            print("Changed color to: " + Fore.BLUE + "Blue")
+
+        elif key == ord('x'): # x - change pencil to eraser
+            pencil['color'] = (255, 255, 255)
+            print("Changed color to: " + Style.BRIGHT + "Eraser")
 
         elif key == ord('+'): # + - increase pencil size
             pencil['size'] += 1
+            print("Increased pencil size: " + Style.BRIGHT + str(pencil['size']))
 
         elif key == ord('-'): # - - decrease pencil size
-            pencil['size'] -= 1 if pencil['size'] > 1 else 0
+            if pencil['size'] > 1:
+                print("Decreased pencil size: " + Style.BRIGHT + str(pencil['size']-1))
+            else:
+                print("Minimum pencil size: " + Style.BRIGHT + str(pencil['size']))
 
-        elif key == ord('s'): # s - draw a square
+            pencil['size'] -= 1 if pencil['size'] > 1 else 0
+            
+        elif key == ord('s') and pencil['x'] != -1 and pencil['y'] != -1: # s - draw a square
+            print("Completed rectangle") if shape['id'] == 1 else print("Drawing rectangle...")
             canvas = selectShape(pencil, shape, 1)
 
-        elif key == ord('o'): # o - draw a circle
+        elif key == ord('o') and pencil['x'] != -1 and pencil['y'] != -1: # o - draw a circle
+            print("Completed circle") if shape['id'] == 2 else print("Drawing circle...")
             canvas = selectShape(pencil, shape, 2)
 
-        elif key == ord('e'): # e - draw an ellipse
+        elif key == ord('e') and pencil['x'] != -1 and pencil['y'] != -1: # e - draw an ellipse
+            print("Completed ellipse") if shape['id'] == 3 else print("Drawing ellipse...")
             canvas = selectShape(pencil, shape, 3)
 
         elif key == ord('m'): # m - toggle camera Mode
             camera_mode = not camera_mode
+            print("Enabled camera background") if camera_mode else print("Disabled camera background")
 
         elif key == ord('n'): # n - toggle mouse input and stop shape drawing
             pencil['use_mouse'] = not pencil['use_mouse']
+            print("Using mouse to draw") if pencil['use_mouse'] else print("Using centroid to draw")
+
             shape['drawing'] = False
             shape['id'] = 0
             shape['start_x'], shape['start_y'] = -1, -1
