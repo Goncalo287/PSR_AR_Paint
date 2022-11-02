@@ -563,7 +563,7 @@ def main():
 
         # Show cursor on pencil position
         if pencil['x'] != -1 and pencil['y'] != -1:
-            cv2.circle(final_image_overlays, (pencil['x'], pencil['y']), pencil['size']//2, (0, 0, 0), 0)
+            cv2.circle(final_image_overlays, (pencil['x'], pencil['y']), pencil['size']//2, (208, 208, 225), 0)
 
 
         cv2.imshow(name_canvas, final_image_overlays)
