@@ -35,6 +35,8 @@ We developed two separate scripts, one called color_segmenter.py, where we can c
   - The user can click on the camera while in the color segmenter to choose the limits
   - Getting the evaluation of the picture for each of the colors
   - Can draw with the mouse with a toggle
+  - Can replace the pencil with an eraser
+  - Show an indicator of where the pencil is on canvas
 
 ## How To Use
 
@@ -76,6 +78,10 @@ $ python ar_paint.py --help
   - Change pencil color to red
 * g
   - Change pencil color to green
+* b
+  - Change pencil color to blue
+* x
+  - Change pencil to eraser
 * '+'
   - Increase pencil size by 1
 * '-'
